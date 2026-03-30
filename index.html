@@ -3,138 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>O Meu Roteiro: Nice & Mónaco</title>
+    <title>Nice & Mónaco: Guia Inteligente</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     
     <style>
-        body { margin: 0; padding: 0; font-family: sans-serif; }
-        /* O mapa vai ocupar o ecrã todo do telemóvel */
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
         #map { height: 100vh; width: 100vw; }
         
-        /* Botão para localizar o utilizador */
-        #locate-btn {
+        /* Painel de Info Superior */
+        #info-panel {
             position: absolute;
-            bottom: 20px;
+            top: 10px;
             left: 50%;
             transform: translateX(-50%);
+            z-index: 1001;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: none; /* Só aparece quando há rota */
+            text-align: center;
+            min-width: 250px;
+        }
+
+        #locate-btn {
+            position: absolute;
+            bottom: 30px;
+            right: 20px;
             z-index: 1000;
-            background-color: #0078A8;
+            background: #e74c3c;
             color: white;
             border: none;
-            padding: 15px 20px;
-            font-size: 16px;
-            border-radius: 30px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            font-size: 24px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             cursor: pointer;
         }
+
+        .popup-content h3 { margin: 0 0 5px 0; color: #2c3e50; }
+        .popup-content p { margin: 5px 0; font-size: 14px; }
+        .price { font-weight: bold; color: #27ae60; }
     </style>
 </head>
 <body>
 
+    <div id="info-panel">
+        <b id="distancia">---</b> | <b id="tempo">---</b> a pé
+    </div>
+
     <div id="map"></div>
-    <button id="locate-btn">📍 Onde estou?</button>
+    <button id="locate-btn" title="Minha Localização">📍</button>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
     <script>
-        // 1. Iniciar o Mapa centrado entre Nice e o Mónaco
-        var map = L.map('map').setView([43.7150, 7.3500], 11);
+        var map = L.map('map').setView([43.7101, 7.2620], 12);
 
-        // Adicionar o fundo do mapa (OpenStreetMap é gratuito e não precisa de chave)
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
+            attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        // Variáveis para guardar a localização do utilizador e a rota atual
         var userLocation = null;
-        var currentRoute = null;
+        var control = null;
         var userMarker = null;
 
-        // 2. A tua lista de locais (Alguns já preenchidos com as coordenadas exatas)
+        // --- BASE DE DADOS DE LOCAIS ---
         var locais = [
-            // --- NICE ---
-            { nome: "Promenade des Anglais", tipo: "Monument", lat: 43.6946, lng: 7.2605 },
-            { nome: "Parque Colina do Castelo", tipo: "Monument", lat: 43.6954, lng: 7.2797 },
-            { nome: "Catedral de São Nicolau", tipo: "Monument", lat: 43.7036, lng: 7.2536 },
-            { nome: "Place Masséna", tipo: "Monument", lat: 43.6969, lng: 7.2703 },
-            { nome: "Chez Pipo (Socca)", tipo: "Restaurante", lat: 43.6968, lng: 7.2846 },
-            { nome: "Le Bistrot d'Antoine", tipo: "Restaurante", lat: 43.6967, lng: 7.2758 },
+            // NICE - Monumentos
+            { nome: "Promenade des Anglais", lat: 43.6946, lng: 7.2605, info: "Grátis", tipo: "🏛️" },
+            { nome: "Colina do Castelo", lat: 43.6954, lng: 7.2797, info: "Grátis (Elevador Pago: ~2€)", tipo: "🏛️" },
+            { nome: "Catedral São Nicolau", lat: 43.7036, lng: 7.2536, info: "Grátis (Interior)", tipo: "🏛️" },
+            { nome: "MAMAC (Arte Moderna)", lat: 43.7013, lng: 7.2784, info: "Entrada: ~10€", tipo: "🏛️" },
+            { nome: "Museu Matisse", lat: 43.7193, lng: 7.2762, info: "Entrada: ~10€", tipo: "🏛️" },
+            // NICE - Restaurantes
+            { nome: "Chez Pipo", lat: 43.6968, lng: 7.2846, info: "Preço médio: 10-15€", tipo: "🍽️" },
+            { nome: "Le Bistrot d'Antoine", lat: 43.6967, lng: 7.2758, info: "Preço médio: 22€", tipo: "🍽️" },
+            { nome: "Lou Pilha Leva", lat: 43.6974, lng: 7.2778, info: "Preço médio: 10€", tipo: "🍽️" },
+            { nome: "Socca d'Or", lat: 43.7001, lng: 7.2831, info: "Preço médio: 8-12€", tipo: "🍽️" },
+            { nome: "La Rossettisserie", lat: 43.6972, lng: 7.2770, info: "Preço médio: 20-25€", tipo: "🍽️" },
             
-            // --- MÓNACO ---
-            { nome: "Palácio do Príncipe", tipo: "Monument", lat: 43.7310, lng: 7.4198 },
-            { nome: "Casino de Monte Carlo", tipo: "Monument", lat: 43.7393, lng: 7.4282 },
-            { nome: "Museu Oceanográfico", tipo: "Monument", lat: 43.7306, lng: 7.4254 },
-            { nome: "Marché de la Condamine", tipo: "Restaurante", lat: 43.7325, lng: 7.4190 },
-            { nome: "Bambi (Restaurante)", tipo: "Restaurante", lat: 43.7335, lng: 7.4195 }
+            // MÓNACO - Monumentos
+            { nome: "Palácio do Príncipe", lat: 43.7310, lng: 7.4198, info: "Exterior Grátis / Interior ~10€", tipo: "🏛️" },
+            { nome: "Casino Monte Carlo", lat: 43.7393, lng: 7.4282, info: "Entrada: ~17€", tipo: "🏛️" },
+            { nome: "Museu Oceanográfico", lat: 43.7306, lng: 7.4254, info: "Entrada: ~19€", tipo: "🏛️" },
+            { nome: "Catedral do Mónaco", lat: 43.7302, lng: 7.4225, info: "Grátis", tipo: "🏛️" },
+            { nome: "Jardim Japonês", lat: 43.7430, lng: 7.4308, info: "Grátis", tipo: "🏛️" },
+            // MÓNACO - Restaurantes
+            { nome: "Bambi", lat: 43.7335, lng: 7.4195, info: "Preço médio: 15-20€", tipo: "🍽️" },
+            { nome: "Marché Condamine", lat: 43.7325, lng: 7.4190, info: "Preço médio: 12-18€", tipo: "🍽️" },
+            { nome: "Grubers Burgers", lat: 43.7334, lng: 7.4207, info: "Preço médio: 18€", tipo: "🍽️" },
+            { nome: "Il Terrazzino", lat: 43.7385, lng: 7.4245, info: "Preço médio: 25€", tipo: "🍽️" },
+            { nome: "Reginèlla", lat: 43.7320, lng: 7.4192, info: "Preço médio: 21€", tipo: "🍽️" }
         ];
 
-        // 3. Adicionar os marcadores ao mapa
-        locais.forEach(function(local) {
-            // Escolher o emoji dependendo se é restaurante ou monumento
-            var icone = local.tipo === "Restaurante" ? "🍽️" : "🏛️";
-            
-            var marker = L.marker([local.lat, local.lng]).addTo(map);
-            
-            // O que aparece quando clicas no marcador
-            marker.bindPopup(`
-                <div style="text-align:center;">
-                    <h3>${icone} ${local.nome}</h3>
-                    <p>${local.tipo}</p>
-                    <button onclick="calcularRota(${local.lat}, ${local.lng})" style="padding:10px; background:#28a745; color:white; border:none; border-radius:5px;">Ir para aqui</button>
+        locais.forEach(function(l) {
+            var m = L.marker([l.lat, l.lng]).addTo(map);
+            m.bindPopup(`
+                <div class="popup-content">
+                    <h3>${l.tipo} ${l.nome}</h3>
+                    <p class="price">💰 ${l.info}</p>
+                    <button onclick="fazerRota(${l.lat}, ${l.lng})" style="width:100%; padding:8px; background:#3498db; color:white; border:none; border-radius:5px; cursor:pointer;">Ir para aqui</button>
                 </div>
             `);
         });
 
-        // 4. Função para encontrar o utilizador (GPS do telemóvel)
-        document.getElementById('locate-btn').addEventListener('click', function() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(function(position) {
-                    userLocation = L.latLng(position.coords.latitude, position.coords.longitude);
-                    
-                    // Se já existir um marcador do utilizador, remove-o
-                    if (userMarker) { map.removeLayer(userMarker); }
-                    
-                    // Adiciona um marcador azul para o utilizador
-                    userMarker = L.circleMarker(userLocation, {
-                        color: '#0078A8', fillOpacity: 0.8, radius: 8
-                    }).addTo(map).bindPopup("Tu estás aqui!").openPopup();
-                    
-                    map.setView(userLocation, 14);
-                }, function() {
-                    alert("Não foi possível encontrar a tua localização. Verifica se o GPS está ligado.");
-                });
-            } else {
-                alert("O teu navegador não suporta geolocalização.");
-            }
+        // Localização GPS
+        document.getElementById('locate-btn').onclick = function() {
+            map.locate({setView: true, maxZoom: 16});
+        };
+
+        map.on('locationfound', function(e) {
+            userLocation = e.latlng;
+            if (userMarker) map.removeLayer(userMarker);
+            userMarker = L.circleMarker(userLocation, {color: 'red', radius: 10}).addTo(map).bindPopup("Estás aqui!").openPopup();
         });
 
-        // 5. Função Mágica para Calcular a Rota, Tempo e Distância
-        window.calcularRota = function(destLat, destLng) {
+        // Cálculo de Rota
+        window.fazerRota = function(destLat, destLng) {
             if (!userLocation) {
-                alert("Primeiro clica em '📍 Onde estou?' para sabermos de onde partes!");
+                alert("Ativa primeiro a tua localização no botão vermelho!");
                 return;
             }
 
-            // Remove a rota anterior se existir
-            if (currentRoute) { map.removeControl(currentRoute); }
+            if (control) map.removeControl(control);
 
-            var destination = L.latLng(destLat, destLng);
-
-            // Cria a nova rota (isto diz-te o tempo e a distância na caixa superior direita)
-            currentRoute = L.Routing.control({
-                waypoints: [ userLocation, destination ],
-                routeWhileDragging: false,
-                language: 'pt', // Instruções em português
-                createMarker: function() { return null; }, // Esconde marcadores extra da rota
-                lineOptions: { styles: [{color: '#FF0000', opacity: 0.8, weight: 5}] } // Linha vermelha
+            control = L.Routing.control({
+                waypoints: [userLocation, L.latLng(destLat, destLng)],
+                router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
+                profile: 'walking', // Define percurso a pé
+                lineOptions: { styles: [{color: '#e74c3c', weight: 6}] },
+                createMarker: function() { return null; },
+                addWaypoints: false,
+                draggableWaypoints: false
             }).addTo(map);
 
-            // Fecha o popup do marcador para limpar o ecrã
+            // Capturar os dados de distância e tempo
+            control.on('routesfound', function(e) {
+                var routes = e.routes;
+                var summary = routes[0].summary;
+                var dist = (summary.totalDistance / 1000).toFixed(2) + " km";
+                var tempo = Math.round(summary.totalTime / 60) + " min";
+                
+                document.getElementById('info-panel').style.display = "block";
+                document.getElementById('distancia').innerText = dist;
+                document.getElementById('tempo').innerText = tempo;
+            });
+
             map.closePopup();
         };
+
+        map.on('locationerror', function() { alert("GPS não encontrado."); });
     </script>
 </body>
 </html>
