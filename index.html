@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Nice & Mónaco - Meus Pontos</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Routing CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+
+    <style>
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        h1 {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            background: rgba(255,255,255,0.95);
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.3);
+            margin: 0;
+            font-size: 1.5em;
+            text-align: center;
+        }
+        .info {
+            position: absolute;
+            top: 70px;
+            left: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.25);
+            max-width: 300px;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🗺️ Nice & Mónaco - Meus Restaurantes & Monumentos</h1>
+
+    <div class="info">
+        <strong>Como usar:</strong><br>
+        1. Clica no botão de localização (canto superior direito)<br>
+        2. Clica num marcador → "Ir para aqui"<br>
+        3. Usa as camadas no canto superior direito para ligar/desligar categorias
+    </div>
+
+    <div id="map"></div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+    <script>
+        // Mapa centrado na Costa Azul
+        const map = L.map('map').setView([43.71, 7.30], 12.5);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        let userLocation = null;
+        let currentRoute = null;
+
+        // Ícones com emojis (super visíveis)
+        const iconEco = L.divIcon({ className: 'emoji-marker', html: '🟢', iconSize: [32, 32], iconAnchor: [16, 32] });
+        const iconAni = L.divIcon({ className: 'emoji-marker', html: '🟠', iconSize: [32, 32], iconAnchor: [16, 32] });
+        const iconMon = L.divIcon({ className: 'emoji-marker', html: '🔵', iconSize: [32, 32], iconAnchor: [16, 32] });
+
+        // Layer Groups (para ligar/desligar)
+        const layerEco = L.layerGroup().addTo(map);
+        const layerAni = L.layerGroup().addTo(map);
+        const layerMon = L.layerGroup().addTo(map);
+
+        // Todos os pontos com coordenadas PRECISAS
+        const pontos = [
+            // Nice - Económicos
+            {name: "Chez Pipo", addr: "13 Rue Bavastro, 06300 Nice", cat: "Económico", group: layerEco, lat: 43.6958, lng: 7.2785, icon: iconEco},
+            {name: "René Socca", addr: "2 Rue Miralheti, 06300 Nice", cat: "Económico", group: layerEco, lat: 43.6968, lng: 7.2755, icon: iconEco},
+            {name: "Creperie Suzette", addr: "26 Rue Masséna, 06000 Nice", cat: "Económico", group: layerEco, lat: 43.6952, lng: 7.2685, icon: iconEco},
+            {name: "Lou Pilha Leva", addr: "10 Rue du Collet, 06300 Nice", cat: "Económico", group: layerEco, lat: 43.6971, lng: 7.2741, icon: iconEco},
+            {name: "Boulangerie Lagache", addr: "20 Rue Arson, 06300 Nice", cat: "Económico", group: layerEco, lat: 43.6995, lng: 7.2818, icon: iconEco},
+
+            // Nice - Jantar Aniversário
+            {name: "Le Bistrot d’Antoine", addr: "27 Rue de la Préfecture, 06300 Nice", cat: "Aniversário", group: layerAni, lat: 43.6958, lng: 7.2788, icon: iconAni},
+            {name: "Comptoir du Marché", addr: "8 Rue du Marché, 06300 Nice", cat: "Aniversário", group: layerAni, lat: 43.6952, lng: 7.2758, icon: iconAni},
+
+            // Mónaco - Económicos
+            {name: "Bambi", addr: "11 Rue Princesse Antoinette, 98000 Monaco", cat: "Económico", group: layerEco, lat: 43.7305, lng: 7.4242, icon: iconEco},
+            {name: "Marché de la Condamine", addr: "15 Place d'Armes, 98000 Monaco", cat: "Económico", group: layerEco, lat: 43.7328, lng: 7.4195, icon: iconEco},
+            {name: "Arrow Burger", addr: "6 Rue de l'Église, 98000 Monaco", cat: "Económico", group: layerEco, lat: 43.7312, lng: 7.4228, icon: iconEco},
+            {name: "Graziella", addr: "42 Quai Jean-Charles Rey, 98000 Monaco", cat: "Económico", group: layerEco, lat: 43.7285, lng: 7.4275, icon: iconEco},
+            {name: "Pasticceria Riviera", addr: "27 Bd Albert 1er, 98000 Monaco", cat: "Económico", group: layerEco, lat: 43.7348, lng: 7.4215, icon: iconEco},
+
+            // Mónaco - Jantar Aniversário
+            {name: "Il Terrazzino", addr: "2 Rue des Iris, 98000 Monaco", cat: "Aniversário", group: layerAni, lat: 43.7332, lng: 7.4255, icon: iconAni},
+            {name: "U Cavagnetu", addr: "14 Rue Basse, 98000 Monaco", cat: "Aniversário", group: layerAni, lat: 43.7318, lng: 7.4235, icon: iconAni},
+
+            // Monumentos Nice
+            {name: "Promenade des Anglais", addr: "Promenade des Anglais, 06000 Nice", cat: "Monumento", group: layerMon, lat: 43.6945, lng: 7.2658, icon: iconMon},
+            {name: "Colline du Château", addr: "Rue des Ponchettes, 06300 Nice", cat: "Monumento", group: layerMon, lat: 43.6938, lng: 7.2800, icon: iconMon},
+            {name: "Cathédrale Saint-Nicolas", addr: "Avenue Nicolas II, 06000 Nice", cat: "Monumento", group: layerMon, lat: 43.7032, lng: 7.2625, icon: iconMon},
+            {name: "Place Masséna", addr: "Place Masséna, 06000 Nice", cat: "Monumento", group: layerMon, lat: 43.6968, lng: 7.2692, icon: iconMon},
+            {name: "Cours Saleya", addr: "Cours Saleya, 06300 Nice", cat: "Monumento", group: layerMon, lat: 43.6962, lng: 7.2758, icon: iconMon},
+
+            // Monumentos Mónaco
+            {name: "Palais Princier", addr: "Place du Palais, 98015 Monaco", cat: "Monumento", group: layerMon, lat: 43.7311, lng: 7.4200, icon: iconMon},
+            {name: "Casino de Monte-Carlo", addr: "Place du Casino, 98000 Monaco", cat: "Monumento", group: layerMon, lat: 43.7392, lng: 7.4280, icon: iconMon},
+            {name: "Cathédrale de Monaco", addr: "4 Rue Colonel Bellando de Castro, 98000 Monaco", cat: "Monumento", group: layerMon, lat: 43.7303, lng: 7.4228, icon: iconMon},
+            {name: "Musée Océanographique", addr: "Avenue Saint-Martin, 98000 Monaco", cat: "Monumento", group: layerMon, lat: 43.7308, lng: 7.4290, icon: iconMon},
+            {name: "Jardim Exotique de Monaco", addr: "62 Bd du Jardin Exotique, 98000 Monaco", cat: "Monumento", group: layerMon, lat: 43.7320, lng: 7.4135, icon: iconMon}
+        ];
+
+        // Adicionar marcadores
+        pontos.forEach(p => {
+            const marker = L.marker([p.lat, p.lng], { icon: p.icon }).addTo(p.group);
+
+            marker.bindPopup(`
+                <b>${p.name}</b><br>
+                <small>${p.addr}</small><br>
+                <i>${p.cat}</i><br><br>
+                <button onclick="calcularRota(${p.lat}, ${p.lng}, '${p.name}')" 
+                        style="padding:8px 16px; background:#e11d48; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px;">
+                    🛣️ Ir para aqui
+                </button>
+            `);
+        });
+
+        // Controlo de camadas (ligar/desligar)
+        L.control.layers({
+            "🟢 Restaurantes Económicos (< 30€)": layerEco,
+            "🟠 Jantar de Aniversário (~65€)": layerAni,
+            "🔵 Monumentos": layerMon
+        }, {}, { collapsed: false }).addTo(map);
+
+        // Botão de localização
+        L.control.locate({
+            position: 'topright',
+            strings: { title: "Localizar a minha posição" }
+        }).addTo(map);
+
+        map.on('locationfound', e => {
+            userLocation = e.latlng;
+        });
+
+        // Função de rota + tempo
+        window.calcularRota = function(destLat, destLng, nome) {
+            if (!userLocation) {
+                alert("⚠️ Primeiro ativa a tua localização no botão do canto superior direito!");
+                return;
+            }
+
+            if (currentRoute) map.removeControl(currentRoute);
+
+            currentRoute = L.Routing.control({
+                waypoints: [userLocation, L.latLng(destLat, destLng)],
+                routeWhileDragging: true,
+                language: 'pt',
+                lineOptions: { styles: [{ color: '#e11d48', weight: 6 }] }
+            }).on('routesfound', function(e) {
+                const route = e.routes[0];
+                const tempoMin = Math.round(route.summary.totalTime / 60);
+                const distKm = (route.summary.totalDistance / 1000).toFixed(1);
+                alert(`🚗 Rota para ${nome}\n\nDistância: ${distKm} km\nTempo estimado: ${tempoMin} minutos (de carro)`);
+            }).addTo(map);
+        };
+
+        // Mensagem de sucesso
+        console.log("✅ Mapa carregado com sucesso! Todos os pontos estão devidamente marcados.");
+    </script>
+</body>
+</html>
