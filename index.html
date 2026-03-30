@@ -40,6 +40,13 @@
             font-size: 0.95em;
             line-height: 1.4;
         }
+        /* Marcadores MUITO MAIORES */
+        .emoji-marker {
+            font-size: 50px !important;
+            line-height: 50px;
+            text-align: center;
+            text-shadow: 0 0 6px rgba(0,0,0,0.4);
+        }
     </style>
 </head>
 <body>
@@ -47,10 +54,11 @@
     <h1>🗺️ Nice & Mónaco - Meus Restaurantes & Monumentos</h1>
 
     <div class="info">
-        <strong>Como usar:</strong><br>
-        1. Clica no botão de localização (canto superior direito)<br>
-        2. Clica num marcador → "Ir para aqui"<br>
-        3. Usa as camadas no canto superior direito para ligar/desligar categorias
+        <strong>Como usar (agora super simples):</strong><br>
+        1. Clica em qualquer marcador<br>
+        2. Clica no botão <strong>🛣️ Ir para aqui</strong><br>
+        3. O navegador pede automaticamente a tua localização<br>
+        4. Mostra a rota + distância + tempo de carro
     </div>
 
     <div id="map"></div>
@@ -70,18 +78,19 @@
 
         let userLocation = null;
         let currentRoute = null;
+        let pendingRoute = null;   // ← NOVO: guarda o destino enquanto pede localização
 
-        // Ícones com emojis (super visíveis)
-        const iconEco = L.divIcon({ className: 'emoji-marker', html: '🟢', iconSize: [32, 32], iconAnchor: [16, 32] });
-        const iconAni = L.divIcon({ className: 'emoji-marker', html: '🟠', iconSize: [32, 32], iconAnchor: [16, 32] });
-        const iconMon = L.divIcon({ className: 'emoji-marker', html: '🔵', iconSize: [32, 32], iconAnchor: [16, 32] });
+        // Ícones MUITO MAIORES (50px)
+        const iconEco = L.divIcon({ className: 'emoji-marker', html: '🟢', iconSize: [50, 50], iconAnchor: [25, 50] });
+        const iconAni = L.divIcon({ className: 'emoji-marker', html: '🟠', iconSize: [50, 50], iconAnchor: [25, 50] });
+        const iconMon = L.divIcon({ className: 'emoji-marker', html: '🔵', iconSize: [50, 50], iconAnchor: [25, 50] });
 
-        // Layer Groups (para ligar/desligar)
+        // Layer Groups
         const layerEco = L.layerGroup().addTo(map);
         const layerAni = L.layerGroup().addTo(map);
         const layerMon = L.layerGroup().addTo(map);
 
-        // Todos os pontos com coordenadas PRECISAS
+        // Todos os pontos com coordenadas precisas
         const pontos = [
             // Nice - Económicos
             {name: "Chez Pipo", addr: "13 Rue Bavastro, 06300 Nice", cat: "Económico", group: layerEco, lat: 43.6958, lng: 7.2785, icon: iconEco},
@@ -90,7 +99,7 @@
             {name: "Lou Pilha Leva", addr: "10 Rue du Collet, 06300 Nice", cat: "Económico", group: layerEco, lat: 43.6971, lng: 7.2741, icon: iconEco},
             {name: "Boulangerie Lagache", addr: "20 Rue Arson, 06300 Nice", cat: "Económico", group: layerEco, lat: 43.6995, lng: 7.2818, icon: iconEco},
 
-            // Nice - Jantar Aniversário
+            // Nice - Aniversário
             {name: "Le Bistrot d’Antoine", addr: "27 Rue de la Préfecture, 06300 Nice", cat: "Aniversário", group: layerAni, lat: 43.6958, lng: 7.2788, icon: iconAni},
             {name: "Comptoir du Marché", addr: "8 Rue du Marché, 06300 Nice", cat: "Aniversário", group: layerAni, lat: 43.6952, lng: 7.2758, icon: iconAni},
 
@@ -101,7 +110,7 @@
             {name: "Graziella", addr: "42 Quai Jean-Charles Rey, 98000 Monaco", cat: "Económico", group: layerEco, lat: 43.7285, lng: 7.4275, icon: iconEco},
             {name: "Pasticceria Riviera", addr: "27 Bd Albert 1er, 98000 Monaco", cat: "Económico", group: layerEco, lat: 43.7348, lng: 7.4215, icon: iconEco},
 
-            // Mónaco - Jantar Aniversário
+            // Mónaco - Aniversário
             {name: "Il Terrazzino", addr: "2 Rue des Iris, 98000 Monaco", cat: "Aniversário", group: layerAni, lat: 43.7332, lng: 7.4255, icon: iconAni},
             {name: "U Cavagnetu", addr: "14 Rue Basse, 98000 Monaco", cat: "Aniversário", group: layerAni, lat: 43.7318, lng: 7.4235, icon: iconAni},
 
@@ -129,53 +138,77 @@
                 <small>${p.addr}</small><br>
                 <i>${p.cat}</i><br><br>
                 <button onclick="calcularRota(${p.lat}, ${p.lng}, '${p.name}')" 
-                        style="padding:8px 16px; background:#e11d48; color:white; border:none; border-radius:6px; cursor:pointer; font-size:14px;">
+                        style="padding:10px 18px; background:#e11d48; color:white; border:none; border-radius:6px; cursor:pointer; font-size:15px; width:100%;">
                     🛣️ Ir para aqui
                 </button>
-            `);
+            `, { closeButton: true });
         });
 
-        // Controlo de camadas (ligar/desligar)
+        // Controlo de camadas
         L.control.layers({
-            "🟢 Restaurantes Económicos (< 30€)": layerEco,
-            "🟠 Jantar de Aniversário (~65€)": layerAni,
+            "🟢 Económicos (< 30€)": layerEco,
+            "🟠 Aniversário (~65€)": layerAni,
             "🔵 Monumentos": layerMon
         }, {}, { collapsed: false }).addTo(map);
 
-        // Botão de localização
+        // Botão de localização manual (ainda existe)
         L.control.locate({
             position: 'topright',
             strings: { title: "Localizar a minha posição" }
         }).addTo(map);
 
-        map.on('locationfound', e => {
+        // Quando a localização é encontrada
+        map.on('locationfound', function(e) {
             userLocation = e.latlng;
+
+            // Se havia um destino pendente → calcula a rota automaticamente
+            if (pendingRoute) {
+                const {lat, lng, name} = pendingRoute;
+                pendingRoute = null;
+                criarRota(lat, lng, name);
+            }
         });
 
-        // Função de rota + tempo
+        // Erro ao pedir localização
+        map.on('locationerror', function(e) {
+            alert("❌ Não foi possível obter a tua localização.\nVerifica as permissões do navegador.");
+            pendingRoute = null;
+        });
+
+        // Função principal chamada pelo botão
         window.calcularRota = function(destLat, destLng, nome) {
             if (!userLocation) {
-                alert("⚠️ Primeiro ativa a tua localização no botão do canto superior direito!");
+                pendingRoute = { lat: destLat, lng: destLng, name: nome };
+                alert("📍 A pedir a tua localização...\nPor favor permite o acesso no navegador.");
+                map.locate({ setView: true, maxZoom: 16 });
                 return;
             }
+            criarRota(destLat, destLng, nome);
+        };
 
+        // Cria a rota + mostra tempo e distância
+        function criarRota(destLat, destLng, nome) {
             if (currentRoute) map.removeControl(currentRoute);
 
             currentRoute = L.Routing.control({
-                waypoints: [userLocation, L.latLng(destLat, destLng)],
+                waypoints: [
+                    L.latLng(userLocation.lat, userLocation.lng),
+                    L.latLng(destLat, destLng)
+                ],
                 routeWhileDragging: true,
                 language: 'pt',
-                lineOptions: { styles: [{ color: '#e11d48', weight: 6 }] }
+                lineOptions: { styles: [{ color: '#e11d48', weight: 7 }] },
+                createMarker: function() { return null; }
             }).on('routesfound', function(e) {
                 const route = e.routes[0];
                 const tempoMin = Math.round(route.summary.totalTime / 60);
                 const distKm = (route.summary.totalDistance / 1000).toFixed(1);
-                alert(`🚗 Rota para ${nome}\n\nDistância: ${distKm} km\nTempo estimado: ${tempoMin} minutos (de carro)`);
-            }).addTo(map);
-        };
 
-        // Mensagem de sucesso
-        console.log("✅ Mapa carregado com sucesso! Todos os pontos estão devidamente marcados.");
+                alert(`🚗 Rota para ${nome}\n\n📏 Distância: ${distKm} km\n⏱ Tempo estimado: ${tempoMin} minutos (de carro)`);
+            }).addTo(map);
+        }
+
+        console.log("✅ Mapa carregado com marcadores GRANDES e rota automática!");
     </script>
 </body>
 </html>
