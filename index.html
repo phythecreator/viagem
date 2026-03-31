@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Nice & Mónaco: Roteiro Pro</title>
+    <title>Nice & Mónaco: Roteiro Final</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
@@ -12,56 +12,27 @@
         body { margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5;}
         #map { height: 100vh; width: 100vw; }
         
-        /* Painel de Info Superior */
         #info-panel {
-            position: absolute;
-            top: 15px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1001;
-            background: white;
-            padding: 12px 25px;
-            border-radius: 30px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            display: none;
-            text-align: center;
-            border: 2px solid #2c3e50;
-            font-weight: bold;
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            z-index: 1001; background: white; padding: 12px 25px; border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); display: none; text-align: center;
+            border: 2px solid #2c3e50; font-weight: bold;
         }
 
-        /* Botão de Localização */
         #locate-btn {
-            position: absolute;
-            bottom: 40px;
-            right: 20px;
-            z-index: 1000;
-            background: #e74c3c;
-            color: white;
-            border: none;
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            font-size: 24px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            cursor: pointer;
+            position: absolute; bottom: 40px; right: 20px; z-index: 1000;
+            background: #2c3e50; color: white; border: none; width: 60px; height: 60px;
+            border-radius: 50%; font-size: 24px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); cursor: pointer;
         }
 
-        /* Popups */
-        .popup-content h3 { margin: 0 0 5px 0; font-size: 16px; }
+        .popup-content h3 { margin: 0 0 5px 0; font-size: 16px; color: #2c3e50; }
         .price { font-weight: bold; color: #27ae60; margin: 5px 0; }
         .notes { font-size: 12px; color: #666; font-style: italic; }
         
-        /* Legenda */
         #legenda {
-            position: absolute;
-            bottom: 40px;
-            left: 20px;
-            z-index: 1000;
-            background: white;
-            padding: 12px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-            font-size: 13px;
+            position: absolute; bottom: 40px; left: 20px; z-index: 1000;
+            background: white; padding: 12px; border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15); font-size: 13px;
         }
         .legenda-item { display: flex; align-items: center; margin-bottom: 6px; }
         .legenda-ponto { width: 14px; height: 14px; border-radius: 50%; margin-right: 10px; border: 1.5px solid white; box-shadow: 0 0 2px black; }
@@ -74,9 +45,10 @@
     </div>
 
     <div id="map"></div>
-    <button id="locate-btn">📍</button>
+    <button id="locate-btn" title="Onde estou?">📍</button>
 
     <div id="legenda">
+        <div class="legenda-item"><div class="legenda-ponto" style="background: #d63031;"></div> O Meu Hotel</div>
         <div class="legenda-item"><div class="legenda-ponto" style="background: #e67e22;"></div> Monumentos</div>
         <div class="legenda-item"><div class="legenda-ponto" style="background: #2980b9;"></div> Restaurantes</div>
         <div class="legenda-item"><div class="legenda-ponto" style="background: #27ae60;"></div> Supermercados</div>
@@ -86,14 +58,13 @@
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
     <script>
-        var map = L.map('map').setView([43.7100, 7.3000], 12);
+        var map = L.map('map').setView([43.7028, 7.2642], 14);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
         var userLocation = null;
         var control = null;
         var userMarker = null;
 
-        // Estilos dos Pontos
         function criarIcone(cor) {
             return L.divIcon({
                 className: 'custom-icon',
@@ -102,100 +73,101 @@
             });
         }
 
+        var icHot = criarIcone('#d63031'); // Vermelho
         var icMon = criarIcone('#e67e22'); // Laranja
         var icRes = criarIcone('#2980b9'); // Azul
         var icSup = criarIcone('#27ae60'); // Verde
 
-        // --- DADOS ATUALIZADOS (40 LOCAIS) ---
         var locais = [
+            // O TEU HOTEL (VERMELHO)
+            { n: "Hôtel Bristol", t: "Hot", lat: 43.7028, lng: 7.2642, p: "Check-in: 15h", i: "22 Rue Paganini (Perto da Gare)" },
+
             // MONUMENTOS NICE
             { n: "Promenade des Anglais", t: "Mon", lat: 43.6946, lng: 7.2605, p: "Grátis", i: "Passeio à beira-mar" },
-            { n: "Colline du Château", t: "Mon", lat: 43.6954, lng: 7.2797, p: "Grátis", i: "Melhor vista de Nice" },
-            { n: "Cathédrale Sainte-Réparate", t: "Mon", lat: 43.6974, lng: 7.2758, p: "Grátis", i: "Centro histórico" },
+            { n: "Colline du Château", t: "Mon", lat: 43.6954, lng: 7.2797, p: "Grátis", i: "Vista panorâmica de Nice" },
+            { n: "Cathédrale Sainte-Réparate", t: "Mon", lat: 43.6974, lng: 7.2758, p: "Grátis", i: "Cidade Velha" },
             { n: "Cathédrale Saint-Nicolas", t: "Mon", lat: 43.7036, lng: 7.2536, p: "Grátis/5€", i: "Catedral Russa" },
-            { n: "Hôtel Le Negresco", t: "Mon", lat: 43.6945, lng: 7.2580, p: "Grátis (ext)", i: "Fachada icónica" },
-            { n: "Palais Lascaris", t: "Mon", lat: 43.6976, lng: 7.2773, p: "5-10€", i: "Museu de música e arte" },
-            { n: "Place Masséna", t: "Mon", lat: 43.6969, lng: 7.2703, p: "Grátis", i: "Coração da cidade" },
-            { n: "Place Garibaldi", t: "Mon", lat: 43.7008, lng: 7.2801, p: "Grátis", i: "Praça histórica" },
-            { n: "Cours Saleya", t: "Mon", lat: 43.6957, lng: 7.2748, p: "Grátis", i: "Mercado das flores" },
-            { n: "Basilique Notre-Dame", t: "Mon", lat: 43.7033, lng: 7.2662, p: "Grátis", i: "Principal igreja" },
-            { n: "Port Lympia", t: "Mon", lat: 43.6961, lng: 7.2847, p: "Grátis", i: "Porto de Nice" },
-            { n: "Palais de la Méditerranée", t: "Mon", lat: 43.6952, lng: 7.2619, p: "Grátis", i: "Arquitetura histórica" },
-            { n: "Opéra de Nice", t: "Mon", lat: 43.6956, lng: 7.2724, p: "Varia", i: "Teatro e Ópera" },
-            { n: "Palais Préfecture", t: "Mon", lat: 43.6964, lng: 7.2741, p: "Grátis (ext)", i: "Antigo palácio real" },
-            { n: "Fort du Mont-Alban", t: "Mon", lat: 43.7005, lng: 7.3006, p: "4-8€", i: "Vista panorâmica" },
+            { n: "Hôtel Le Negresco", t: "Mon", lat: 43.6945, lng: 7.2580, p: "Grátis (ext)", i: "Fachada histórica" },
+            { n: "Palais Lascaris", t: "Mon", lat: 43.6976, lng: 7.2773, p: "5-10€", i: "Instrumentos musicais antigos" },
+            { n: "Place Masséna", t: "Mon", lat: 43.6969, lng: 7.2703, p: "Grátis", i: "Estátuas e xadrez gigante" },
+            { n: "Place Garibaldi", t: "Mon", lat: 43.7008, lng: 7.2801, p: "Grátis", i: "Arquitetura barroca" },
+            { n: "Cours Saleya", t: "Mon", lat: 43.6957, lng: 7.2748, p: "Grátis", i: "Mercado de flores e antiguidades" },
+            { n: "Basilique Notre-Dame", t: "Mon", lat: 43.7033, lng: 7.2662, p: "Grátis", i: "Principal basílica de Nice" },
+            { n: "Port Lympia", t: "Mon", lat: 43.6961, lng: 7.2847, p: "Grátis", i: "Barcos tradicionais" },
+            { n: "Palais de la Méditerranée", t: "Mon", lat: 43.6952, lng: 7.2619, p: "Grátis", i: "Fachada Art Déco" },
+            { n: "Opéra de Nice", t: "Mon", lat: 43.6956, lng: 7.2724, p: "Varia", i: "Visita exterior ou espetáculo" },
+            { n: "Palais Préfecture", t: "Mon", lat: 43.6964, lng: 7.2741, p: "Grátis (ext)", i: "Antigo Palácio dos Reis da Sardenha" },
+            { n: "Fort du Mont-Alban", t: "Mon", lat: 43.7005, lng: 7.3006, p: "4-8€", i: "Entre Nice e Villefranche" },
 
             // MONUMENTOS MÓNACO
-            { n: "Palais Princier", t: "Mon", lat: 43.7310, lng: 7.4198, p: "13€", i: "Troca da guarda 11:55" },
-            { n: "Musée Océanographique", t: "Mon", lat: 43.7306, lng: 7.4254, p: "22.50€", i: "Aquário gigante" },
-            { n: "Casino Monte-Carlo", t: "Mon", lat: 43.7393, lng: 7.4282, p: "20€", i: "Necessário passaporte" },
-            { n: "Cathédrale de Monaco", t: "Mon", lat: 43.7302, lng: 7.4225, p: "Grátis", i: "Túmulo da Grace Kelly" },
-            { n: "Monaco-Ville (Le Rocher)", t: "Mon", lat: 43.7314, lng: 7.4226, p: "Grátis", i: "Cidade velha" },
-            { n: "Port Hercule", t: "Mon", lat: 43.7350, lng: 7.4220, p: "Grátis", i: "Iates de luxo" },
-            { n: "Jardin Exotique", t: "Mon", lat: 43.7318, lng: 7.4136, p: "8-10€", i: "Plantas e vistas" },
-            { n: "Place du Casino", t: "Mon", lat: 43.7390, lng: 7.4278, p: "Grátis", i: "Carros de luxo" },
-            { n: "Opéra de Monte-Carlo", t: "Mon", lat: 43.7388, lng: 7.4286, p: "Grátis (ext)", i: "Estilo Garnier" },
-            { n: "Circuit de Monaco (F1)", t: "Mon", lat: 43.7360, lng: 7.4200, p: "Grátis", i: "Percorrer a pista" },
+            { n: "Palais Princier", t: "Mon", lat: 43.7310, lng: 7.4198, p: "13€", i: "Troca da guarda às 11:55" },
+            { n: "Musée Océanographique", t: "Mon", lat: 43.7306, lng: 7.4254, p: "22.50€", i: "Aquário e museu marinho" },
+            { n: "Casino Monte-Carlo", t: "Mon", lat: 43.7393, lng: 7.4282, p: "20€", i: "Uso obrigatório de Passaporte" },
+            { n: "Cathédrale de Monaco", t: "Mon", lat: 43.7302, lng: 7.4225, p: "Grátis", i: "Onde casou Grace Kelly" },
+            { n: "Monaco-Ville", t: "Mon", lat: 43.7314, lng: 7.4226, p: "Grátis", i: "Zona histórica no topo" },
+            { n: "Port Hercule", t: "Mon", lat: 43.7350, lng: 7.4220, p: "Grátis", i: "Porto principal" },
+            { n: "Jardin Exotique", t: "Mon", lat: 43.7318, lng: 7.4136, p: "8-10€", i: "Plantas raras e vistas" },
+            { n: "Place du Casino", t: "Mon", lat: 43.7390, lng: 7.4278, p: "Grátis", i: "Coração de Monte-Carlo" },
+            { n: "Opéra de Monte-Carlo", t: "Mon", lat: 43.7388, lng: 7.4286, p: "Varia", i: "Fachada virada para o mar" },
+            { n: "Circuit de Monaco (F1)", t: "Mon", lat: 43.7360, lng: 7.4200, p: "Grátis", i: "A pista de rua mais famosa" },
 
             // RESTAURANTES NICE
-            { n: "Chez René Socca", t: "Res", lat: 43.6977, lng: 7.2787, p: "3-8€", i: "Melhor Socca local" },
-            { n: "The Original Focà", t: "Res", lat: 43.6968, lng: 7.2700, p: "8-10€", i: "Focaccias perto da Masséna" },
-            { n: "Lou Pilha Leva", t: "Res", lat: 43.6983, lng: 7.2779, p: "5-10€", i: "Mesas corridas típicas" },
-            { n: "Chez Thérésa", t: "Res", lat: 43.6958, lng: 7.2750, p: "4-7€", i: "Tradicional no mercado" },
-            { n: "Pizza Pili", t: "Res", lat: 43.6966, lng: 7.2766, p: "6-9€", i: "Fatias rápidas e baratas" },
+            { n: "Chez René Socca", t: "Res", lat: 43.6977, lng: 7.2787, p: "3-8€", i: "Socca tradicional incrível" },
+            { n: "The Original Focà", t: "Res", lat: 43.6968, lng: 7.2700, p: "8-10€", i: "Sandes de focaccia fresco" },
+            { n: "Lou Pilha Leva", t: "Res", lat: 43.6983, lng: 7.2779, p: "5-10€", i: "Mexilhões com batatas fritas" },
+            { n: "Chez Thérésa", t: "Res", lat: 43.6958, lng: 7.2750, p: "4-7€", i: "Ícone do mercado Saleya" },
+            { n: "Pizza Pili", t: "Res", lat: 43.6966, lng: 7.2766, p: "6-9€", i: "Pizza barata e rápida" },
 
             // RESTAURANTES MÓNACO
-            { n: "Panino Club", t: "Res", lat: 43.7410, lng: 7.4270, p: "10-15€", i: "Gourmet e rápido" },
-            { n: "Marché Condamine", t: "Res", lat: 43.7325, lng: 7.4190, p: "10-18€", i: "Bancas de comida variada" },
-            { n: "Smash Monaco", t: "Res", lat: 43.7320, lng: 7.4200, p: "12-16€", i: "Burgers no Rocher" },
-            { n: "Sexy Tacos", t: "Res", lat: 43.7330, lng: 7.4210, p: "10-15€", i: "Comida rápida e boa" },
+            { n: "Panino Club", t: "Res", lat: 43.7410, lng: 7.4270, p: "10-15€", i: "Perto do Casino" },
+            { n: "Marché Condamine", t: "Res", lat: 43.7325, lng: 7.4190, p: "10-18€", i: "Bancadas de comida típica" },
+            { n: "Smash Monaco", t: "Res", lat: 43.7320, lng: 7.4200, p: "12-16€", i: "Hambúrgueres suculentos" },
+            { n: "Sexy Tacos", t: "Res", lat: 43.7330, lng: 7.4210, p: "10-15€", i: "Mexicano rápido" },
 
-            // SUPERMERCADOS (VERDE) - NICE
-            { n: "Lidl Nice Vauban", t: "Sup", lat: 43.7058, lng: 7.2818, p: "Económico", i: "O mais barato para snacks" },
-            { n: "Carrefour Nice TNL", t: "Sup", lat: 43.7077, lng: 7.2882, p: "Económico", i: "Hipermercado completo" },
-            { n: "Intermarché Gare du Sud", t: "Sup", lat: 43.7065, lng: 7.2618, p: "Médio-Baixo", i: "Perto da linha do elétrico" },
+            // SUPERMERCADOS NICE
+            { n: "Lidl Nice Vauban", t: "Sup", lat: 43.7058, lng: 7.2818, p: "€", i: "Mais barato para stock" },
+            { n: "Carrefour Nice TNL", t: "Sup", lat: 43.7077, lng: 7.2882, p: "€€", i: "Hipermercado completo" },
+            { n: "Intermarché Gare du Sud", t: "Sup", lat: 43.7065, lng: 7.2618, p: "€€", i: "Muito central" },
 
-            // SUPERMERCADOS (VERDE) - MÓNACO
-            { n: "U Market Monaco", t: "Sup", lat: 43.7395, lng: 7.4227, p: "Económico", i: "Preços normais no Mónaco" },
-            { n: "Carrefour Market Albert 1er", t: "Sup", lat: 43.7362, lng: 7.4208, p: "Económico", i: "Perto do Porto Hercule" },
-            { n: "Spar Metropole", t: "Sup", lat: 43.7401, lng: 7.4290, p: "Médio", i: "No centro comercial do Casino" }
+            // SUPERMERCADOS MÓNACO
+            { n: "U Market Monaco", t: "Sup", lat: 43.7395, lng: 7.4227, p: "€€", i: "Excelente para almoços rápidos" },
+            { n: "Carrefour Market Albert 1er", t: "Sup", lat: 43.7362, lng: 7.4208, p: "€€", i: "No coração do porto" },
+            { n: "Spar Metropole", t: "Sup", lat: 43.7401, lng: 7.4290, p: "€€€", i: "No shopping do Casino" }
         ];
 
         locais.forEach(function(l) {
-            var icon;
-            var emoji = "🏛️";
+            var icon; var emoji = "🏛️";
             if(l.t === "Res") { icon = icRes; emoji = "🍽️"; }
             else if(l.t === "Sup") { icon = icSup; emoji = "🛒"; }
+            else if(l.t === "Hot") { icon = icHot; emoji = "🏨"; }
             else { icon = icMon; }
 
             L.marker([l.lat, l.lng], {icon: icon}).addTo(map)
              .bindPopup(`
                 <div class="popup-content">
                     <h3>${emoji} ${l.n}</h3>
-                    <p class="price">💰 Preço: ${l.p}</p>
+                    <p class="price">💰 ${l.p}</p>
                     <p class="notes">ℹ️ ${l.i}</p>
-                    <button onclick="fazerRota(${l.lat}, ${l.lng})" style="width:100%; padding:10px; background:#2c3e50; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">Ir para aqui</button>
+                    <button onclick="fazerRota(${l.lat}, ${l.lng})" style="width:100%; padding:10px; background:#2c3e50; color:white; border:none; border-radius:8px; cursor:pointer; font-weight:bold;">Traçar Rota</button>
                 </div>
             `);
         });
 
-        // GPS
         document.getElementById('locate-btn').onclick = function() { map.locate({setView: true, maxZoom: 16}); };
         map.on('locationfound', function(e) {
             userLocation = e.latlng;
             if (userMarker) map.removeLayer(userMarker);
-            userMarker = L.circleMarker(userLocation, {color: 'red', radius: 8, fillOpacity: 1}).addTo(map).bindPopup("<b>Estás aqui!</b>").openPopup();
+            userMarker = L.circleMarker(userLocation, {color: '#2980b9', radius: 10, weight: 3, fillOpacity: 0.8, fillColor: 'white'}).addTo(map).bindPopup("<b>Estás aqui!</b>").openPopup();
         });
 
-        // Rota
         window.fazerRota = function(dLat, dLng) {
-            if (!userLocation) { alert("Clica primeiro no botão 📍 para sabermos onde estás!"); return; }
+            if (!userLocation) { alert("Clica no botão 📍 primeiro para obtermos a tua posição GPS!"); return; }
             if (control) map.removeControl(control);
             control = L.Routing.control({
                 waypoints: [userLocation, L.latLng(dLat, dLng)],
                 router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
                 profile: 'walking',
-                lineOptions: { styles: [{color: '#8e44ad', weight: 6}] },
+                lineOptions: { styles: [{color: '#e74c3c', weight: 6, opacity: 0.8}] },
                 createMarker: function() { return null; },
                 addWaypoints: false, show: false
             }).addTo(map);
