@@ -1,36 +1,39 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-PT">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Nice & Mónaco: Guia Inteligente</title>
+    <title>Nice & Mónaco: O Meu Roteiro</title>
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
     
     <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa;}
         #map { height: 100vh; width: 100vw; }
         
         /* Painel de Info Superior */
         #info-panel {
             position: absolute;
-            top: 10px;
+            top: 15px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 1001;
             background: rgba(255, 255, 255, 0.95);
-            padding: 10px 20px;
-            border-radius: 15px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-            display: none; /* Só aparece quando há rota */
+            padding: 12px 25px;
+            border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            display: none;
             text-align: center;
+            font-size: 16px;
             min-width: 250px;
+            border: 2px solid #2c3e50;
         }
 
+        /* Botão de Localização */
         #locate-btn {
             position: absolute;
-            bottom: 30px;
+            bottom: 40px;
             right: 20px;
             z-index: 1000;
             background: #e74c3c;
@@ -42,27 +45,59 @@
             font-size: 24px;
             box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .popup-content h3 { margin: 0 0 5px 0; color: #2c3e50; }
-        .popup-content p { margin: 5px 0; font-size: 14px; }
+        /* Estilo dos popups */
+        .leaflet-popup-content-wrapper { border-radius: 12px; }
+        .popup-content h3 { margin: 0 0 5px 0; color: #2c3e50; font-size: 16px; }
+        .popup-content p { margin: 5px 0; font-size: 14px; color: #555; }
         .price { font-weight: bold; color: #27ae60; }
+        .notes { font-size: 12px !important; font-style: italic; color: #7f8c8d !important; }
+        
+        /* Legenda */
+        #legenda {
+            position: absolute;
+            bottom: 40px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            font-size: 14px;
+        }
+        .legenda-item { display: flex; align-items: center; margin-bottom: 5px; }
+        .legenda-ponto { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; border: 2px solid white; box-shadow: 0 0 3px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
 
     <div id="info-panel">
-        <b id="distancia">---</b> | <b id="tempo">---</b> a pé
+        <b id="distancia">---</b> | 🚶 <b id="tempo">---</b>
     </div>
 
     <div id="map"></div>
-    <button id="locate-btn" title="Minha Localização">📍</button>
+    
+    <button id="locate-btn" title="Onde estou?">📍</button>
+
+    <div id="legenda">
+        <div class="legenda-item">
+            <div class="legenda-ponto" style="background-color: #e67e22;"></div> Monumentos
+        </div>
+        <div class="legenda-item">
+            <div class="legenda-ponto" style="background-color: #2980b9;"></div> Restaurantes
+        </div>
+    </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
 
     <script>
-        var map = L.map('map').setView([43.7101, 7.2620], 12);
+        // Iniciar mapa
+        var map = L.map('map').setView([43.7101, 7.3000], 12);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap'
@@ -72,47 +107,83 @@
         var control = null;
         var userMarker = null;
 
-        // --- BASE DE DADOS DE LOCAIS ---
+        // Estilos dos Pontos (Laranja para Monumentos, Azul para Restaurantes)
+        var iconMonumento = L.divIcon({
+            className: 'custom-icon',
+            html: "<div style='background-color:#e67e22; width:16px; height:16px; border-radius:50%; border:2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.6);'></div>",
+            iconSize: [20, 20], iconAnchor: [10, 10]
+        });
+
+        var iconRestaurante = L.divIcon({
+            className: 'custom-icon',
+            html: "<div style='background-color:#2980b9; width:16px; height:16px; border-radius:50%; border:2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.6);'></div>",
+            iconSize: [20, 20], iconAnchor: [10, 10]
+        });
+
+        // --- BASE DE DADOS COMPLETA (Das tuas imagens) ---
         var locais = [
-            // NICE - Monumentos
-            { nome: "Promenade des Anglais", lat: 43.6946, lng: 7.2605, info: "Grátis", tipo: "🏛️" },
-            { nome: "Colina do Castelo", lat: 43.6954, lng: 7.2797, info: "Grátis (Elevador Pago: ~2€)", tipo: "🏛️" },
-            { nome: "Catedral São Nicolau", lat: 43.7036, lng: 7.2536, info: "Grátis (Interior)", tipo: "🏛️" },
-            { nome: "MAMAC (Arte Moderna)", lat: 43.7013, lng: 7.2784, info: "Entrada: ~10€", tipo: "🏛️" },
-            { nome: "Museu Matisse", lat: 43.7193, lng: 7.2762, info: "Entrada: ~10€", tipo: "🏛️" },
-            // NICE - Restaurantes
-            { nome: "Chez Pipo", lat: 43.6968, lng: 7.2846, info: "Preço médio: 10-15€", tipo: "🍽️" },
-            { nome: "Le Bistrot d'Antoine", lat: 43.6967, lng: 7.2758, info: "Preço médio: 22€", tipo: "🍽️" },
-            { nome: "Lou Pilha Leva", lat: 43.6974, lng: 7.2778, info: "Preço médio: 10€", tipo: "🍽️" },
-            { nome: "Socca d'Or", lat: 43.7001, lng: 7.2831, info: "Preço médio: 8-12€", tipo: "🍽️" },
-            { nome: "La Rossettisserie", lat: 43.6972, lng: 7.2770, info: "Preço médio: 20-25€", tipo: "🍽️" },
-            
-            // MÓNACO - Monumentos
-            { nome: "Palácio do Príncipe", lat: 43.7310, lng: 7.4198, info: "Exterior Grátis / Interior ~10€", tipo: "🏛️" },
-            { nome: "Casino Monte Carlo", lat: 43.7393, lng: 7.4282, info: "Entrada: ~17€", tipo: "🏛️" },
-            { nome: "Museu Oceanográfico", lat: 43.7306, lng: 7.4254, info: "Entrada: ~19€", tipo: "🏛️" },
-            { nome: "Catedral do Mónaco", lat: 43.7302, lng: 7.4225, info: "Grátis", tipo: "🏛️" },
-            { nome: "Jardim Japonês", lat: 43.7430, lng: 7.4308, info: "Grátis", tipo: "🏛️" },
-            // MÓNACO - Restaurantes
-            { nome: "Bambi", lat: 43.7335, lng: 7.4195, info: "Preço médio: 15-20€", tipo: "🍽️" },
-            { nome: "Marché Condamine", lat: 43.7325, lng: 7.4190, info: "Preço médio: 12-18€", tipo: "🍽️" },
-            { nome: "Grubers Burgers", lat: 43.7334, lng: 7.4207, info: "Preço médio: 18€", tipo: "🍽️" },
-            { nome: "Il Terrazzino", lat: 43.7385, lng: 7.4245, info: "Preço médio: 25€", tipo: "🍽️" },
-            { nome: "Reginèlla", lat: 43.7320, lng: 7.4192, info: "Preço médio: 21€", tipo: "🍽️" }
+            // ================= NICE: MONUMENTOS =================
+            { nome: "Promenade des Anglais", lat: 43.6946, lng: 7.2605, preco: "Grátis", notas: "Passeio público", tipo: "Monumento" },
+            { nome: "Colline du Château", lat: 43.6954, lng: 7.2797, preco: "Grátis", notas: "Parque e elevador grátis. Vista incrível!", tipo: "Monumento" },
+            { nome: "Cathédrale Sainte-Réparate", lat: 43.6974, lng: 7.2758, preco: "Grátis", notas: "Entrada livre (donativo opcional)", tipo: "Monumento" },
+            { nome: "Cathédrale Saint-Nicolas", lat: 43.7036, lng: 7.2536, preco: "Grátis (entrada principal)", notas: "~5€ para cripta. Visita guiada: ~10€", tipo: "Monumento" },
+            { nome: "Hôtel Le Negresco", lat: 43.6945, lng: 7.2580, preco: "Grátis (exterior)", notas: "Interior reservado a clientes", tipo: "Monumento" },
+            { nome: "Palais Lascaris", lat: 43.6976, lng: 7.2773, preco: "5€ a 10€", notas: "Visita guiada extra ~7€", tipo: "Monumento" },
+            { nome: "Place Masséna", lat: 43.6969, lng: 7.2703, preco: "Grátis", notas: "Praça pública", tipo: "Monumento" },
+            { nome: "Place Garibaldi", lat: 43.7008, lng: 7.2801, preco: "Grátis", notas: "Praça pública", tipo: "Monumento" },
+            { nome: "Cours Saleya", lat: 43.6957, lng: 7.2748, preco: "Grátis", notas: "Mercado e praça pública", tipo: "Monumento" },
+            { nome: "Basilique Notre-Dame de Nice", lat: 43.7033, lng: 7.2662, preco: "Grátis", notas: "Igreja aberta ao público", tipo: "Monumento" },
+            { nome: "Port Lympia", lat: 43.6961, lng: 7.2847, preco: "Grátis", notas: "Porto público", tipo: "Monumento" },
+            { nome: "Palais de la Méditerranée", lat: 43.6952, lng: 7.2619, preco: "Grátis (exterior)", notas: "Edifício histórico", tipo: "Monumento" },
+            { nome: "Opéra de Nice", lat: 43.6956, lng: 7.2724, preco: "Grátis (exterior) / varia", notas: "Interior só em visitas/espetáculos", tipo: "Monumento" },
+            { nome: "Palais de la Préfecture", lat: 43.6964, lng: 7.2741, preco: "Grátis (exterior)", notas: "Pátio às vezes acessível", tipo: "Monumento" },
+            { nome: "Fort du Mont-Alban", lat: 43.7005, lng: 7.3006, preco: "4€ a 8€", notas: "Vale pela vista panorâmica", tipo: "Monumento" },
+
+            // ================= MÓNACO: MONUMENTOS =================
+            { nome: "Palais Princier", lat: 43.7310, lng: 7.4198, preco: "13€", notas: "Crianças: 8€ | Estudantes: 11€", tipo: "Monumento" },
+            { nome: "Musée Océanographique", lat: 43.7306, lng: 7.4254, preco: "22,50€", notas: "Estudantes/crianças: 14€. Combo disponível.", tipo: "Monumento" },
+            { nome: "Casino de Monte-Carlo", lat: 43.7393, lng: 7.4282, preco: "20€ (+14h)", notas: "Só +18 anos (passaporte). Dress code.", tipo: "Monumento" },
+            { nome: "Cathédrale de Monaco", lat: 43.7302, lng: 7.4225, preco: "Grátis", notas: "Entrada livre", tipo: "Monumento" },
+            { nome: "Monaco-Ville (O Rocher)", lat: 43.7314, lng: 7.4226, preco: "Grátis", notas: "Zona pública histórica", tipo: "Monumento" },
+            { nome: "Port Hercule", lat: 43.7350, lng: 7.4220, preco: "Grátis", notas: "Passear à beira-mar", tipo: "Monumento" },
+            { nome: "Jardin Exotique", lat: 43.7318, lng: 7.4136, preco: "8-10€", notas: "Vistas incríveis", tipo: "Monumento" },
+            { nome: "Place du Casino", lat: 43.7390, lng: 7.4278, preco: "Grátis", notas: "Ver o casino de fora", tipo: "Monumento" },
+            { nome: "Opéra de Monte-Carlo", lat: 43.7388, lng: 7.4286, preco: "Grátis (exterior)", notas: "Interior geralmente 10-20€+", tipo: "Monumento" },
+            { nome: "Circuit de Monaco (F1)", lat: 43.7360, lng: 7.4200, preco: "Grátis", notas: "Percorrer a pé sem custo", tipo: "Monumento" },
+
+            // ================= NICE: RESTAURANTES =================
+            { nome: "Chez René Socca", lat: 43.6977, lng: 7.2787, preco: "3-8€", notas: "Vieux Nice. Super autêntico, filas normais.", tipo: "Restaurante" },
+            { nome: "The Original Focà", lat: 43.6968, lng: 7.2700, preco: "7,90-10€", notas: "Place Masséna. Focaccia enorme, fresco.", tipo: "Restaurante" },
+            { nome: "Lou Pilha Leva", lat: 43.6983, lng: 7.2779, preco: "4-9€", notas: "Vieux Nice. Barato, rápido e local.", tipo: "Restaurante" },
+            { nome: "Chez Thérésa", lat: 43.6958, lng: 7.2750, preco: "3-7€", notas: "Cours Saleya. Famosa Socca quente.", tipo: "Restaurante" },
+            { nome: "Pizza Pili / Ma Minute Pizza", lat: 43.6966, lng: 7.2766, preco: "6-9€", notas: "Vieux Nice. Fatias generosas.", tipo: "Restaurante" },
+
+            // ================= MÓNACO: RESTAURANTES =================
+            { nome: "Panino Club", lat: 43.7410, lng: 7.4270, preco: "10-16€", notas: "Bd des Moulins. Paninis gourmet grandes.", tipo: "Restaurante" },
+            { nome: "Marché de la Condamine", lat: 43.7325, lng: 7.4190, preco: "8-15€", notas: "Perto do porto. Socca, pizza, animado.", tipo: "Restaurante" },
+            { nome: "Smash Monaco", lat: 43.7320, lng: 7.4200, preco: "12-16€", notas: "Monaco-Ville. Burgers suculentos.", tipo: "Restaurante" },
+            { nome: "Chez Les Grecs / Sexy Tacos", lat: 43.7330, lng: 7.4210, preco: "10-15€", notas: "Gyros ou tacos generosos.", tipo: "Restaurante" }
         ];
 
+        // Desenhar os pontos no mapa
         locais.forEach(function(l) {
-            var m = L.marker([l.lat, l.lng]).addTo(map);
+            // Escolher o ícone com base no tipo
+            var iconEscolhido = (l.tipo === "Restaurante") ? iconRestaurante : iconMonumento;
+            var emoji = (l.tipo === "Restaurante") ? "🍽️" : "🏛️";
+
+            var m = L.marker([l.lat, l.lng], {icon: iconEscolhido}).addTo(map);
+            
             m.bindPopup(`
                 <div class="popup-content">
-                    <h3>${l.tipo} ${l.nome}</h3>
-                    <p class="price">💰 ${l.info}</p>
-                    <button onclick="fazerRota(${l.lat}, ${l.lng})" style="width:100%; padding:8px; background:#3498db; color:white; border:none; border-radius:5px; cursor:pointer;">Ir para aqui</button>
+                    <h3>${emoji} ${l.nome}</h3>
+                    <p class="price">💰 Preço: ${l.preco}</p>
+                    <p class="notes">ℹ️ ${l.notas}</p>
+                    <button onclick="fazerRota(${l.lat}, ${l.lng})" style="width:100%; margin-top:8px; padding:10px; background:#2c3e50; color:white; font-weight:bold; border:none; border-radius:8px; cursor:pointer;">Ir para aqui</button>
                 </div>
             `);
         });
 
-        // Localização GPS
+        // Geolocalização
         document.getElementById('locate-btn').onclick = function() {
             map.locate({setView: true, maxZoom: 16});
         };
@@ -120,13 +191,17 @@
         map.on('locationfound', function(e) {
             userLocation = e.latlng;
             if (userMarker) map.removeLayer(userMarker);
-            userMarker = L.circleMarker(userLocation, {color: 'red', radius: 10}).addTo(map).bindPopup("Estás aqui!").openPopup();
+            
+            // Marcador do Utilizador (Ponto Vermelho Piscante)
+            userMarker = L.circleMarker(userLocation, {
+                color: '#c0392b', fillColor: '#e74c3c', fillOpacity: 0.9, radius: 8, weight: 3
+            }).addTo(map).bindPopup("<b>Estás aqui!</b>").openPopup();
         });
 
-        // Cálculo de Rota
+        // Calcular Rota a Pé
         window.fazerRota = function(destLat, destLng) {
             if (!userLocation) {
-                alert("Ativa primeiro a tua localização no botão vermelho!");
+                alert("Por favor, clica primeiro no botão vermelho 📍 para obtermos a tua localização!");
                 return;
             }
 
@@ -135,17 +210,16 @@
             control = L.Routing.control({
                 waypoints: [userLocation, L.latLng(destLat, destLng)],
                 router: L.Routing.osrmv1({ serviceUrl: 'https://router.project-osrm.org/route/v1' }),
-                profile: 'walking', // Define percurso a pé
-                lineOptions: { styles: [{color: '#e74c3c', weight: 6}] },
-                createMarker: function() { return null; },
-                addWaypoints: false,
-                draggableWaypoints: false
+                profile: 'walking', // Força percurso a pé
+                lineOptions: { styles: [{color: '#8e44ad', weight: 5, opacity: 0.8}] }, // Linha roxa para o caminho
+                createMarker: function() { return null; }, // Esconde marcadores extra do trajeto
+                addWaypoints: false, draggableWaypoints: false,
+                show: false // Esconde a janela de instruções passo-a-passo (melhor para telemóvel)
             }).addTo(map);
 
-            // Capturar os dados de distância e tempo
+            // Mostrar Distância e Tempo no topo
             control.on('routesfound', function(e) {
-                var routes = e.routes;
-                var summary = routes[0].summary;
+                var summary = e.routes[0].summary;
                 var dist = (summary.totalDistance / 1000).toFixed(2) + " km";
                 var tempo = Math.round(summary.totalTime / 60) + " min";
                 
@@ -157,7 +231,7 @@
             map.closePopup();
         };
 
-        map.on('locationerror', function() { alert("GPS não encontrado."); });
+        map.on('locationerror', function() { alert("Não foi possível aceder ao teu GPS. Verifica as permissões do telemóvel."); });
     </script>
 </body>
 </html>
